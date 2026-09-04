@@ -1,0 +1,172 @@
+import { afterAll, beforeAll, afterEach, describe, expect, it } from 'vitest';
+import { createServer, type Server } from 'node:http';
+import { runPipeline } from '../src/core/pipeline';
+import { validateKit, uncoveredMustHaves } from '../src/core/validate';
+import { checkCoverage } from '../src/core/coverage';
+import { robotsCacheClear } from '../src/core/net/robots';
+import { installMockLlm, uninstallMockLlm } from './mock-llm';
+
+/**
+ * End-to-end: a local company site plus a deterministic model, exercising
+ * retrieval, the coverage loop, allocation and validation together.
+ */
+
+const SENIOR_JD = `Senior Backend Engineer
+
+Requirements:
+- 5+ years with Go and TypeScript
+- Strong PostgreSQL experience
+- Event-driven systems using Kafka
+- Running services on Kubernetes
+- Mentor two or three mid-level engineers
+- Take part in on-call and lead incident reviews
+
+Nice to have:
+- Experience with Terraform`;
+
+let server: Server;
+let base: string;
+
+beforeAll(async () => {
+  process.env.ALLOW_PRIVATE_NETWORK = 'true';
+  process.env.SEARCH_DISABLED = 'true';
+  const { createSiteServer: makeSite } = await import('../fixtures/mock-site');
+  server = makeSite();
+  await new Promise<void>((resolve) => server.listen(0, resolve));
+  const address = server.address();
+  base = `http://localhost:${typeof address === 'object' && address ? address.port : 0}`;
+});
+
+afterAll(() => {
+  server.close();
+  delete process.env.SEARCH_DISABLED;
+});
+
+afterEach(() => {
+  uninstallMockLlm();
+  robotsCacheClear();
+});
+
+describe('runPipeline against a company that documents its hiring process', () => {
+  it('produces a valid kit that covers every must-have', async () => {
+    installMockLlm();
+    const state = await runPipeline({ jd: SENIOR_JD, companyUrl: `${base}/acme/`, days: 5 });
+
+    expect(state.status).toBe('done');
+    const validation = validateKit(state.kit);
+    expect(validation.errors).toEqual([]);
+    expect(validation.ok).toBe(true);
+
+    const kit = state.kit;
+    expect(uncoveredMustHaves(kit)).toEqual([]);
+    expect(kit.coverage.uncovered_requirement_ids).toEqual([]);
+    expect(kit.schedule.days).toHaveLength(5);
+    expect(kit.flashcards.length).toBeGreaterThan(0);
+  });
+
+  it('finds the hiring page that is only reachable by a relative link', async () => {
+    installMockLlm();
+    const state = await runPipeline({ jd: SENIOR_JD, companyUrl: `${base}/acme/`, days: 3 });
+
+    expect(state.kit.research!.crawled_pages).toBeGreaterThan(1);
+    expect(state.kit.research!.hiring_process_found).toBe(true);
+    expect(state.kit.research!.hiring_process_urls.join(' ')).toContain('how-we-hire');
+    expect(state.kit.source.pages_used.length).toBeGreaterThan(1);
+  });
+
+  it('generates each question category in its own call', async () => {
+    const { calls } = installMockLlm();
+    await runPipeline({ jd: SENIOR_JD, companyUrl: `${base}/acme/`, days: 3 });
+    expect(calls.filter((c) => c === 'questions').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('runs a second pass and closes a coverage gap', async () => {
+    installMockLlm({ dropOnFirstPass: ['r1', 'r2'] });
+    const state = await runPipeline({ jd: SENIOR_JD, companyUrl: `${base}/acme/`, days: 4 });
+
+    expect(state.kit.coverage.passes).toBeGreaterThanOrEqual(1);
+    expect(state.kit.coverage.uncovered_requirement_ids).toEqual([]);
+    const report = checkCoverage(state.kit.role.requirements, state.kit.questions);
+    expect(report.uncovered_must_ids).toEqual([]);
+    // The gap pass ran because the first pass left something uncovered.
+    expect(state.events.some((e) => e.message.includes('gap pass') || e.message.includes('Gap pass'))).toBe(true);
+  });
+});
+
+describe('runPipeline against a company with no hiring page', () => {
+  it('says so honestly instead of inventing a process', async () => {
+    installMockLlm();
+    const state = await runPipeline({ jd: SENIOR_JD, companyUrl: `${base}/quietco/`, days: 3 });
+
+    expect(state.status).toBe('done');
+    expect(state.kit.research!.hiring_process_found).toBe(false);
+    expect(state.kit.research!.notes.join(' ')).toMatch(/no page describing the hiring process/i);
+    expect(validateKit(state.kit).ok).toBe(true);
+  });
+});
+
+describe('runPipeline when the company site cannot be reached', () => {
+  it('still produces a valid kit and records the failure', async () => {
+    installMockLlm();
+    const state = await runPipeline({
+      jd: SENIOR_JD,
+      companyUrl: `${base}/does-not-exist/`,
+      days: 2,
+    });
+
+    expect(state.status).toBe('done');
+    expect(validateKit(state.kit).ok).toBe(true);
+    expect(state.kit.research!.skipped_sources.length).toBeGreaterThan(0);
+    expect(state.kit.research!.notes.join(' ')).toMatch(/could not be reached/i);
+    expect(state.kit.company_brief.what_they_do).toMatch(/unknown/i);
+    expect(uncoveredMustHaves(state.kit)).toEqual([]);
+  });
+});
+
+describe('runPipeline with a two-line job description', () => {
+  it('produces a thin kit that says it is thin, without inventing requirements', async () => {
+    installMockLlm();
+    const state = await runPipeline({
+      jd: 'Full Stack Developer. React and Node. Apply within.',
+      companyUrl: `${base}/quietco/`,
+      days: 3,
+    });
+
+    expect(state.status).toBe('done');
+    expect(state.kit.role.requirements.length).toBeLessThanOrEqual(3);
+    expect(state.kit.research!.notes.join(' ')).toMatch(/thin/i);
+    expect(validateKit(state.kit).ok).toBe(true);
+    expect(state.kit.schedule.days).toHaveLength(3);
+  });
+
+  it('reports honestly when the description is too short to extract anything', async () => {
+    installMockLlm();
+    const state = await runPipeline({ jd: 'Engineer wanted.', companyUrl: `${base}/quietco/`, days: 2 });
+
+    expect(state.status).toBe('done');
+    expect(state.kit.role.requirements).toEqual([]);
+    expect(state.kit.research!.notes.join(' ')).toMatch(/no requirements could be extracted/i);
+    expect(state.kit.schedule.days).toHaveLength(2);
+  });
+});
+
+describe('runPipeline when the model misbehaves', () => {
+  it('degrades a failed non-essential step instead of failing the run', async () => {
+    // Flashcard generation returns unusable output on every attempt.
+    installMockLlm({ failStep: (req) => req.user.includes('"flashcards"') });
+    const state = await runPipeline({ jd: SENIOR_JD, companyUrl: `${base}/acme/`, days: 3 });
+
+    expect(state.status).toBe('done');
+    expect(state.kit.flashcards).toEqual([]);
+    expect(state.kit.research!.notes.join(' ')).toMatch(/flashcards did not complete/i);
+    expect(validateKit(state.kit).ok).toBe(true);
+  });
+
+  it('fails the run when requirements cannot be extracted at all', async () => {
+    installMockLlm({ failStep: (req) => req.user.includes('Extract the role') });
+    const state = await runPipeline({ jd: SENIOR_JD, companyUrl: `${base}/acme/`, days: 3 });
+
+    expect(state.status).toBe('failed');
+    expect(state.error!.code).toBe('EXTRACTION_FAILED');
+  });
+});
