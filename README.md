@@ -441,7 +441,7 @@ is recorded in `research.notes` and surfaced in the UI, not hidden.
 ## Tests
 
 ```bash
-npm test          # 104 tests, no network, no database, no API key
+npm test          # 117 tests, no network, no database, no API key
 npm run typecheck
 ```
 
@@ -463,6 +463,10 @@ Focused on what is worth protecting and hard to eyeball:
 - **`crawl.test.ts`** — link ranking, HTML extraction, relative-link resolution, robots.txt.
 - **`security.test.ts`** — SSRF ranges, injection neutralisation, JSON repair.
 - **`practice.test.ts`** — intervals, session ordering, the weak-spots roll-up.
+- **`provider.test.ts`** — the real HTTP path against a local stand-in for an OpenAI-compatible
+  provider and for Gemini: request shape, a 429 waited out via `Retry-After`, a rate-limit delay
+  read out of the response body, a 400 not retried, and the JSON-repair loop over the wire.
+  Without this the only exercised provider would be the in-process mock.
 
 ---
 
