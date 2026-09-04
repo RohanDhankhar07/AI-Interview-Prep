@@ -88,7 +88,7 @@ export async function extractRequirements(jd: string): Promise<ExtractedRole> {
     maxTokens: 2600,
     schema: ModelOutput,
     user: [
-      dataBlock({ label: 'job_description', content: trimmed, maxChars: 18_000 }),
+      dataBlock({ label: 'job_description', content: trimmed, maxChars: 14_000 }),
       '',
       'Extract the role and its requirements from the job description above.',
       `Return JSON matching exactly this shape:\n${SHAPE}`,

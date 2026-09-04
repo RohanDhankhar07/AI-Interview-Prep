@@ -77,7 +77,7 @@ export async function findHiringProcess(pages: FetchedPage[]): Promise<HiringPro
     schema: ModelOutput,
     user: [
       ...candidates.map((c) =>
-        dataBlock({ label: `company_page ${c.page.url}`, content: c.page.text, maxChars: 9000 }),
+        dataBlock({ label: `company_page ${c.page.url}`, content: c.page.text, maxChars: 6000 }),
       ),
       '',
       'Return JSON: { "describes_hiring_process": boolean, "summary": "string",',

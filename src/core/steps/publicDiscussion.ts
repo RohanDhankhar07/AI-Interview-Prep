@@ -128,7 +128,7 @@ export async function searchPublicDiscussion({
     schema: ModelOutput,
     user: [
       ...fetched.map((p) =>
-        dataBlock({ label: `web_page ${p.url}`, content: `${p.title}\n${p.text}`, maxChars: 6000 }),
+        dataBlock({ label: `web_page ${p.url}`, content: `${p.title}\n${p.text}`, maxChars: 4000 }),
       ),
       '',
       `Company: ${companyName}. Role: ${roleTitle || 'unspecified'}.`,

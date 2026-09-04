@@ -288,7 +288,7 @@ async function runStep(step: StepName, state: PipelineState, log: Logger): Promi
       state.artifacts.pages = result.pages.map((p) => ({
         url: p.url,
         title: p.title,
-        text: truncate(p.text, 12_000),
+        text: truncate(p.text, 9_000),
       }));
       kit.research!.crawled_pages = result.pages.length;
       kit.research!.skipped_sources.push(...result.skipped);

@@ -45,7 +45,9 @@ export async function generateCompanyBrief({
 
   // The homepage plus the most substantial other pages; brief-writing is about
   // what the company does, so we favour text volume over hiring signal here.
-  const chosen = [pages[0], ...pages.slice(1).sort((a, b) => b.text.length - a.text.length)].slice(0, 4);
+  // Three pages at 5k characters keeps one call under ~4k tokens, which matters:
+  // free tiers cap tokens per minute, and this step runs alongside four others.
+  const chosen = [pages[0], ...pages.slice(1).sort((a, b) => b.text.length - a.text.length)].slice(0, 3);
 
   const output = await generateJson({
     label: 'company-brief',
@@ -61,7 +63,7 @@ export async function generateCompanyBrief({
     schema: ModelOutput,
     user: [
       ...chosen.map((p) =>
-        dataBlock({ label: `company_page ${p.url}`, content: `${p.title}\n${p.text}`, maxChars: 7000 }),
+        dataBlock({ label: `company_page ${p.url}`, content: `${p.title}\n${p.text}`, maxChars: 5000 }),
       ),
       '',
       'Return JSON: { "company_name": "string", "summary": "2-4 sentences a candidate can use",',
