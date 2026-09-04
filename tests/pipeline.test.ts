@@ -199,3 +199,21 @@ describe('a published design round changes the kit', () => {
     expect(state.kit.questions.filter((q) => q.category === 'system-design')).toEqual([]);
   });
 });
+
+describe('single-character and two-character requirements', () => {
+  // "Go", "R" and "C" are real requirements. A live run failed an entire case
+  // because the schema demanded three characters.
+  it('keeps a two-letter skill as a requirement', async () => {
+    installMockLlm();
+    const state = await runPipeline({
+      jd: 'Site Reliability Engineer\n\nRequirements:\n- 4+ years on Kubernetes\n- Deep Linux knowledge\n\nDesirable:\n- Go',
+      companyUrl: `${base}/acme/`,
+      days: 2,
+    });
+
+    expect(state.status).toBe('done');
+    const texts = state.kit.role.requirements.map((r) => r.text);
+    expect(texts.some((t) => /\bGo\b/.test(t))).toBe(true);
+    expect(validateKit(state.kit).ok).toBe(true);
+  });
+});

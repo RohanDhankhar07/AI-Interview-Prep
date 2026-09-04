@@ -1,4 +1,4 @@
-import type { z } from 'zod';
+import { z } from 'zod';
 import { complete, LlmError, type CompletionRequest } from './provider';
 
 /**
@@ -58,6 +58,20 @@ function repairCommon(text: string): string {
     .replace(/^﻿/, '')
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'");
+}
+
+/**
+ * An array whose bad elements are dropped instead of failing the whole response.
+ *
+ * Model output is a list of independent items, and one malformed entry should
+ * not cost us the other nine — especially where the step is fatal, as
+ * requirement extraction is. Use this for every array of model-authored items.
+ */
+export function tolerantArray<T>(item: z.ZodType<T>, max = 60) {
+  return z.preprocess(
+    (value) => (Array.isArray(value) ? value.filter((entry) => item.safeParse(entry).success) : value),
+    z.array(item).max(max),
+  );
 }
 
 export interface GenerateJsonOptions<T> extends CompletionRequest {

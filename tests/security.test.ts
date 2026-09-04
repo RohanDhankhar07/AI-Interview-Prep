@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { assertFetchable, isPrivateAddress, parseUrl, BlockedUrlError } from '../src/core/net/ssrf';
 import { neutralise, dataBlock } from '../src/core/llm/prompts';
-import { extractJson } from '../src/core/llm/json';
+import { extractJson, tolerantArray } from '../src/core/llm/json';
+import { z } from 'zod';
 
 describe('URL validation', () => {
   afterEach(() => {
@@ -87,5 +88,37 @@ describe('extractJson', () => {
 
   it('throws when there is no JSON at all', () => {
     expect(() => extractJson('I cannot help with that.')).toThrow(SyntaxError);
+  });
+});
+
+describe('tolerantArray', () => {
+  // Found by a live run: a posting listing "Desirable: - Go" made the model emit a
+  // requirement whose text was two characters. The array had to parse whole, so
+  // one short-but-valid entry failed the entire extraction and the case produced
+  // no kit at all.
+  const Item = z.object({ text: z.string().min(1), n: z.number() });
+
+  it('keeps the good elements and drops only the bad ones', () => {
+    const schema = tolerantArray(Item);
+    const result = schema.parse([
+      { text: 'Go', n: 1 },
+      { text: '', n: 2 },
+      { text: 'Kubernetes', n: 3 },
+      'not an object',
+      { text: 'R', n: 4 },
+    ]);
+    expect(result).toEqual([
+      { text: 'Go', n: 1 },
+      { text: 'Kubernetes', n: 3 },
+      { text: 'R', n: 4 },
+    ]);
+  });
+
+  it('returns an empty array when every element is unusable', () => {
+    expect(tolerantArray(Item).parse([{ bad: true }, null])).toEqual([]);
+  });
+
+  it('still rejects a value that is not an array at all', () => {
+    expect(() => tolerantArray(Item).parse('nope')).toThrow();
   });
 });

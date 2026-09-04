@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { generateJson } from '../llm/json';
+import { generateJson, tolerantArray } from '../llm/json';
 import { dataBlock, SAFETY_RULES } from '../llm/prompts';
 import { mintIds } from '../ids';
 import { REQUIREMENT_KINDS, type Requirement, type Role } from '../types';
@@ -37,7 +37,10 @@ export function normaliseKind(value: unknown): 'technical' | 'behavioural' | 'do
 }
 
 const ModelRequirement = z.object({
-  text: z.string().min(3).max(400),
+  // One character, not three: "Go", "R" and "C" are real requirements, and a
+  // minimum of three silently discarded them — or, in an array that had to parse
+  // whole, failed the entire extraction.
+  text: z.string().min(1).max(400),
   kind: z.preprocess(normaliseKind, z.enum(REQUIREMENT_KINDS)),
   priority: z.preprocess(normalisePriority, z.enum(['must', 'nice'])),
   evidence: z.string().max(400).optional(),
@@ -48,8 +51,8 @@ const ModelOutput = z.object({
   seniority: z.string().max(80).default(''),
   location: z.string().max(120).default(''),
   company_name: z.string().max(160).default(''),
-  responsibilities: z.array(z.string().min(3).max(400)).max(15).default([]),
-  requirements: z.array(ModelRequirement).max(30).default([]),
+  responsibilities: tolerantArray(z.string().min(1).max(400), 15).default([]),
+  requirements: tolerantArray(ModelRequirement, 30).default([]),
   thin: z.boolean().default(false),
 });
 

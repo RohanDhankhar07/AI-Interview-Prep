@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { FetchedPage } from '../net/fetcher';
-import { generateJson } from '../llm/json';
+import { generateJson, tolerantArray } from '../llm/json';
 import { dataBlock, SAFETY_RULES } from '../llm/prompts';
 
 /**
@@ -45,10 +45,10 @@ const MIN_SIGNAL = 12;
 const ModelOutput = z.object({
   describes_hiring_process: z.boolean(),
   summary: z.string().max(1200).default(''),
-  stages: z
-    .array(z.object({ name: z.string().max(120), description: z.string().max(400).default('') }))
-    .max(10)
-    .default([]),
+  stages: tolerantArray(
+    z.object({ name: z.string().max(120), description: z.string().max(400).default('') }),
+    10,
+  ).default([]),
 });
 
 export async function findHiringProcess(pages: FetchedPage[]): Promise<HiringProcess> {

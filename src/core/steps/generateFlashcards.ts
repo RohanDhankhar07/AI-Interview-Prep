@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { generateJson } from '../llm/json';
+import { generateJson, tolerantArray } from '../llm/json';
 import { SAFETY_RULES } from '../llm/prompts';
 import { mintIds } from '../ids';
 import type { Flashcard, Question, Requirement } from '../types';
@@ -11,12 +11,12 @@ import type { Flashcard, Question, Requirement } from '../types';
  */
 
 const ModelCard = z.object({
-  front: z.string().min(3).max(300),
+  front: z.string().min(1).max(300),
   back: z.string().min(1).max(1200),
   requirement_ids: z.array(z.string()).default([]),
 });
 
-const ModelOutput = z.object({ flashcards: z.array(ModelCard).max(40).default([]) });
+const ModelOutput = z.object({ flashcards: tolerantArray(ModelCard, 40).default([]) });
 
 export interface GenerateFlashcardsInput {
   requirements: Requirement[];

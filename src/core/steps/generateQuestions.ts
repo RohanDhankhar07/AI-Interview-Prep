@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { generateJson } from '../llm/json';
+import { generateJson, tolerantArray } from '../llm/json';
 import { dataBlock, SAFETY_RULES } from '../llm/prompts';
 import { mintIds } from '../ids';
 import { QUESTION_CATEGORIES, type Question, type QuestionCategory, type Requirement } from '../types';
@@ -28,12 +28,13 @@ export interface QuestionContext {
 
 const ModelQuestion = z.object({
   requirement_ids: z.array(z.string()).default([]),
-  prompt: z.string().min(8).max(600),
+  prompt: z.string().min(4).max(600),
   answer_outline: z.string().max(2500).default(''),
   difficulty: z.coerce.number().int().min(1).max(3).catch(2),
 });
 
-const ModelOutput = z.object({ questions: z.array(ModelQuestion).max(20).default([]) });
+// One unusable question must not cost us the rest of the category.
+const ModelOutput = z.object({ questions: tolerantArray(ModelQuestion, 20).default([]) });
 
 /** Per-category instructions. This is where the categories stop being interchangeable. */
 const CATEGORY_BRIEFS: Record<QuestionCategory, string> = {
@@ -60,6 +61,9 @@ const CATEGORY_BRIEFS: Record<QuestionCategory, string> = {
     'Write questions that only make sense for this specific company and this posting: its product, its',
     'customers, its domain, and its stated way of working. Include at least one question the candidate',
     'should ask the interviewer.',
+    'Do NOT write technical deep-dive, coding or architecture questions here — those belong to the other',
+    'sections and are being generated separately. If a question would work unchanged at any other company,',
+    'it does not belong in this section.',
     'Use only facts from the supplied company research. If the research is empty, write fewer questions',
     'and keep them anchored to the job description rather than inventing company detail.',
   ].join(' '),
