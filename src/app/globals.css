@@ -1,0 +1,81 @@
+@import 'tailwindcss';
+
+/*
+ * One small token set drives the whole UI. Light and dark are both explicit, so
+ * nothing inherits a colour it did not ask for.
+ */
+@theme {
+  --color-ink: #0f172a;
+  --color-muted: #64748b;
+  --color-line: #e2e8f0;
+  --color-surface: #ffffff;
+  --color-canvas: #f8fafc;
+  --color-brand: #4338ca;
+  --color-brand-soft: #eef2ff;
+  --color-good: #047857;
+  --color-warn: #b45309;
+  --color-bad: #b91c1c;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/*
+ * Dark values override the tokens at runtime. They are plain custom properties,
+ * not a second @theme block: Tailwind merges every @theme regardless of the
+ * media query around it, so a nested one would simply replace the light palette.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-ink: #e2e8f0;
+    --color-muted: #94a3b8;
+    --color-line: #1e293b;
+    --color-surface: #0f172a;
+    --color-canvas: #020617;
+    --color-brand: #a5b4fc;
+    --color-brand-soft: #1e1b4b;
+    --color-good: #34d399;
+    --color-warn: #fbbf24;
+    --color-bad: #f87171;
+  }
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Keyboard users must always be able to see where they are. */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Skip link, visible only once focused. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+}
+.skip-link:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+}
