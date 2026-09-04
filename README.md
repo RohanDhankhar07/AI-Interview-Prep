@@ -72,6 +72,18 @@ npm run dev                    # http://localhost:3000
 - `GROQ_API_KEY` — free key from [console.groq.com](https://console.groq.com). Or set
   `LLM_PROVIDER=gemini` and `GEMINI_API_KEY`, etc.
 
+Once `MONGODB_URI` is set, check it before running the app:
+
+```bash
+npm run db:check
+```
+
+It separates the failures Atlas otherwise reports as one opaque timeout — DNS, TCP, the TLS
+handshake (which is where a missing IP-access-list entry shows up), authentication, and a
+real write — and creates the indexes the app depends on. **Atlas requires your IP on the
+access list** (Network Access › Add IP Address): your own IP for local work, and `0.0.0.0/0`
+for Vercel, whose egress IPs are not fixed on the free tier.
+
 `MONGODB_URI` is optional in development — with no URI the app uses an in-memory store so you can
 run it immediately. It is **required** in production; the app refuses to start without it rather
 than silently losing data on a cold start.

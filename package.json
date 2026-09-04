@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "evaluate": "tsx scripts/evaluate.ts",
-    "mocksite": "tsx scripts/mock-site.ts"
+    "mocksite": "tsx scripts/mock-site.ts",
+    "db:check": "tsx scripts/check-db.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
