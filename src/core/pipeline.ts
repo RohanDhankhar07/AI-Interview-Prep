@@ -364,8 +364,20 @@ async function runStep(step: StepName, state: PipelineState, log: Logger): Promi
     case 'questions.system-design':
     case 'questions.company-fit': {
       const category = step.slice('questions.'.length) as QuestionCategory;
-      const routed = requirementsForCategory(kit.role.requirements, category);
+      let routed = requirementsForCategory(kit.role.requirements, category);
       const next = nextCategoryStep(category);
+
+      // If the company publishes a design round, the kit must have design
+      // questions even when no requirement's wording routed itself there.
+      // This is the clearest case of the hiring page changing the kit.
+      if (category === 'system-design' && routed.length === 0 && publishesDesignRound(state)) {
+        routed = kit.role.requirements
+          .filter((r) => r.kind === 'technical' && r.priority === 'must')
+          .slice(0, 4);
+        if (routed.length > 0) {
+          log('info', 'Their published process includes a design round; seeding design questions from the must-have technical requirements');
+        }
+      }
 
       if (routed.length === 0 && category !== 'company-fit') {
         log('info', `No requirements routed to ${category}; skipping`);
@@ -566,6 +578,25 @@ function contextFor(state: PipelineState): QuestionContext {
     publicDiscussionSummary: kit.research?.public_discussion_summary ?? '',
     publicThemes: (state as PipelineState & { publicThemes?: string[] }).publicThemes ?? [],
   };
+}
+
+/** Does anything we retrieved say this company runs a design or architecture round? */
+export function publishesDesignRound(state: PipelineState): boolean {
+  const stages = (state as PipelineState & { hiringStages?: { name: string; description: string }[] })
+    .hiringStages ?? [];
+  const themes = (state as PipelineState & { publicThemes?: string[] }).publicThemes ?? [];
+  const haystack = [
+    state.kit.research?.hiring_process_summary ?? '',
+    state.kit.research?.public_discussion_summary ?? '',
+    ...stages.flatMap((s) => [s.name, s.description]),
+    ...themes,
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  return /system.?design|architect\w*\s+(interview|round|discussion|exercise)|design\s+(interview|round|discussion|exercise)/.test(
+    haystack,
+  );
 }
 
 function countMust(requirements: Requirement[]): number {

@@ -41,7 +41,10 @@ const limiter = new HostLimiter(
 const PRESETS: Record<string, { baseUrl: string; model: string; keyEnv: string }> = {
   groq: {
     baseUrl: 'https://api.groq.com/openai/v1',
-    model: 'llama-3.3-70b-versatile',
+    // Groq retires models regularly — Llama 3.3 70B is already gone. If this one
+    // returns model_not_found, `GET /openai/v1/models` lists what the key can use
+    // and LLM_MODEL overrides this without a code change.
+    model: 'openai/gpt-oss-120b',
     keyEnv: 'GROQ_API_KEY',
   },
   openrouter: {

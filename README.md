@@ -40,7 +40,7 @@ section-by-section, and practisable inside the app.
 | Database | MongoDB (Atlas free tier) | As preferred by the brief. |
 | Language | TypeScript, strict | |
 | Scraping | `fetch` + `cheerio` | No headless browser: it would not fit a free serverless tier, and the pages worth reading are server-rendered HTML. |
-| LLM | Groq (`llama-3.3-70b-versatile`) by default | Genuine free tier, fast, JSON mode. Gemini, OpenRouter, Cerebras and any OpenAI-compatible endpoint are also supported — one env var. |
+| LLM | Groq (`openai/gpt-oss-120b`) by default | Genuine free tier, fast, JSON mode. Gemini, OpenRouter, Cerebras and any OpenAI-compatible endpoint are also supported — one env var. |
 | Search | Serper / Brave / Tavily if a key is present, DuckDuckGo otherwise | Works with no credentials at all, better with them. |
 
 **The one deviation: Route Handlers instead of a separate Express server.** The brief asks for
@@ -71,6 +71,15 @@ npm run dev                    # http://localhost:3000
 - `AUTH_SECRET` — any random 32+ character string (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
 - `GROQ_API_KEY` — free key from [console.groq.com](https://console.groq.com). Or set
   `LLM_PROVIDER=gemini` and `GEMINI_API_KEY`, etc.
+
+Providers retire models often — Groq has already dropped Llama 3.3 70B. If a run fails with
+`model_not_found`, list what your key can use and set `LLM_MODEL` accordingly; no code change
+is needed:
+
+```bash
+curl -s https://api.groq.com/openai/v1/models -H "Authorization: Bearer $GROQ_API_KEY" \
+  | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).data.map(m=>m.id).join('\n')"
+```
 
 Once `MONGODB_URI` is set, check it before running the app:
 

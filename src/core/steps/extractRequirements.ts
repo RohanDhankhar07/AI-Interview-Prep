@@ -12,10 +12,34 @@ import { REQUIREMENT_KINDS, type Requirement, type Role } from '../types';
  * (r1..rn) no matter what the model returns.
  */
 
+/**
+ * Models are told to answer exactly "must" or "nice", and mostly do — but they
+ * also say "required", "nice-to-have", "nice_to_have" and "preferred". Accepting
+ * only the exact strings and defaulting the rest would silently record a
+ * nice-to-have as a must-have, which is precisely the thing this step must get
+ * right, so the wording is normalised before it is validated.
+ */
+export function normalisePriority(value: unknown): 'must' | 'nice' {
+  const text = String(value ?? '').toLowerCase().replace(/[_\s]+/g, '-');
+  if (/nice|prefer|bonus|desirab|optional|plus|advantage|good-to/.test(text)) return 'nice';
+  if (/must|require|essential|mandator|minimum|need/.test(text)) return 'must';
+  // Unrecognised wording falls back to must: postings put their requirements in
+  // the default section and mark the optional ones explicitly, so "unmarked"
+  // reads as required far more often than not.
+  return 'must';
+}
+
+export function normaliseKind(value: unknown): 'technical' | 'behavioural' | 'domain' {
+  const text = String(value ?? '').toLowerCase();
+  if (/behaviou?r|soft|interpersonal|communicat|collaborat|leader|cultur/.test(text)) return 'behavioural';
+  if (/domain|industry|business|regulat|sector|product-knowledge/.test(text)) return 'domain';
+  return 'technical';
+}
+
 const ModelRequirement = z.object({
   text: z.string().min(3).max(400),
-  kind: z.enum(REQUIREMENT_KINDS).catch('technical'),
-  priority: z.enum(['must', 'nice']).catch('must'),
+  kind: z.preprocess(normaliseKind, z.enum(REQUIREMENT_KINDS)),
+  priority: z.preprocess(normalisePriority, z.enum(['must', 'nice'])),
   evidence: z.string().max(400).optional(),
 });
 

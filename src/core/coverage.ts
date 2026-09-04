@@ -79,6 +79,15 @@ export function checkCoverage(
 }
 
 /**
+ * Vocabulary that marks a requirement as belonging in a design discussion rather
+ * than a hands-on technical one. "event-driven" and "pipeline" earn their place:
+ * a requirement like "designed and operated event-driven systems" is a design
+ * question in every real interview, and matching only "architecture" misses it.
+ */
+const SYSTEM_DESIGN_VOCABULARY =
+  /architect|scal|distributed|system design|infrastructur|throughput|latency|availability|micro-?service|event[-\s]?driven|message (queue|bus)|pipeline|high[-\s]volume|concurren/i;
+
+/**
  * Which category should close a gap for this requirement. Deciding this in code
  * keeps "5 years of React" going to a technical prompt and "mentor juniors"
  * going to a behavioural one, rather than one undifferentiated call.
@@ -86,9 +95,5 @@ export function checkCoverage(
 export function categoryForRequirement(req: Requirement): Question['category'] {
   if (req.kind === 'behavioural') return 'behavioural';
   if (req.kind === 'domain') return 'company-fit';
-  return /architect|scal|distributed|system design|infrastructur|throughput|latency|availability|micro-?service/i.test(
-    req.text,
-  )
-    ? 'system-design'
-    : 'technical';
+  return SYSTEM_DESIGN_VOCABULARY.test(req.text) ? 'system-design' : 'technical';
 }

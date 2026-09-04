@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkCoverage, categoryForRequirement, isLinkSupported } from '../src/core/coverage';
+import { normalisePriority, normaliseKind } from '../src/core/steps/extractRequirements';
 import { question, req } from './helpers';
 
 describe('checkCoverage', () => {
@@ -77,5 +78,62 @@ describe('categoryForRequirement', () => {
 
   it('routes domain requirements to company fit', () => {
     expect(categoryForRequirement(req('r1', 'Fintech regulation', 'nice', 'domain'))).toBe('company-fit');
+  });
+});
+
+describe('priority and kind normalisation', () => {
+  // Models are asked for "must"/"nice" and often answer "required"/"nice-to-have".
+  // Coercing those to a default would silently invent must-have requirements.
+  it('maps the ways a model says "optional" onto nice', () => {
+    for (const word of [
+      'nice', 'nice to have', 'nice-to-have', 'nice_to_have', 'preferred',
+      'bonus', 'desirable', 'optional', 'a plus', 'good to have',
+    ]) {
+      expect(normalisePriority(word)).toBe('nice');
+    }
+  });
+
+  it('maps the ways a model says "required" onto must', () => {
+    for (const word of ['must', 'must have', 'required', 'essential', 'mandatory', 'minimum']) {
+      expect(normalisePriority(word)).toBe('must');
+    }
+  });
+
+  it('treats unmarked wording as required, the way postings are written', () => {
+    for (const value of ['', undefined, null, 'unknown', 42]) {
+      expect(normalisePriority(value)).toBe('must');
+    }
+  });
+
+  it('normalises kind, defaulting to technical', () => {
+    expect(normaliseKind('behavioral')).toBe('behavioural');
+    expect(normaliseKind('soft skill')).toBe('behavioural');
+    expect(normaliseKind('leadership')).toBe('behavioural');
+    expect(normaliseKind('domain knowledge')).toBe('domain');
+    expect(normaliseKind('industry')).toBe('domain');
+    expect(normaliseKind('anything else')).toBe('technical');
+  });
+});
+
+describe('routing to system design', () => {
+  // Found by running a real model: "designed and operated event-driven systems"
+  // is a design question in any real interview, but matching only "architecture"
+  // sent it to the hands-on technical prompt and left system-design empty.
+  it('routes design vocabulary that is not the word "architecture"', () => {
+    for (const text of [
+      'You have designed and operated event-driven systems (we use Kafka)',
+      'Experience with high-volume data pipelines',
+      'Built services handling high throughput',
+      'Familiar with message queues',
+      'Comfortable with concurrency',
+    ]) {
+      expect(categoryForRequirement(req('r1', text))).toBe('system-design');
+    }
+  });
+
+  it('still keeps ordinary tool experience in the technical category', () => {
+    for (const text of ['5+ years with React', 'Strong PostgreSQL query tuning', 'Writes tests']) {
+      expect(categoryForRequirement(req('r1', text))).toBe('technical');
+    }
   });
 });

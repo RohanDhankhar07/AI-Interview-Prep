@@ -170,3 +170,32 @@ describe('runPipeline when the model misbehaves', () => {
     expect(state.error!.code).toBe('EXTRACTION_FAILED');
   });
 });
+
+describe('a published design round changes the kit', () => {
+  // The brief's claim: "a company that publishes a take-home followed by a system
+  // design round should produce a different kit from one that says nothing".
+  it('produces system-design questions for a company that documents a design round', async () => {
+    installMockLlm();
+    const state = await runPipeline({ jd: SENIOR_JD, companyUrl: `${base}/acme/`, days: 4 });
+
+    expect(state.kit.research!.hiring_process_found).toBe(true);
+    const designQuestions = state.kit.questions.filter((q) => q.category === 'system-design');
+    expect(designQuestions.length).toBeGreaterThan(0);
+    expect(
+      state.events.some((e) => /design round/i.test(e.message)) ||
+        designQuestions.some((q) => q.requirement_ids.length > 0),
+    ).toBe(true);
+  });
+
+  it('does not invent a design round for a company that documents nothing', async () => {
+    installMockLlm();
+    const state = await runPipeline({
+      jd: 'Support Engineer. Answer customer tickets. Requirements: 2+ years in a support role. Empathy.',
+      companyUrl: `${base}/quietco/`,
+      days: 2,
+    });
+
+    expect(state.kit.research!.hiring_process_found).toBe(false);
+    expect(state.kit.questions.filter((q) => q.category === 'system-design')).toEqual([]);
+  });
+});
