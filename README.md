@@ -490,6 +490,10 @@ reachable under `/api/*`.
    | `SERPER_API_KEY` *(optional)* | Better search than the keyless fallback. |
    | `ALLOW_PRIVATE_NETWORK` | Leave unset. Defaults to **false** in production. |
 
+After deploying, `GET /api/health` reports which pieces are configured — database, auth
+secret, model provider, search — without revealing any value. It is the quickest way to
+confirm the environment variables landed.
+
 Secrets live only in Vercel's environment variables and are read server-side; nothing sensitive is
 exposed to the browser (no `NEXT_PUBLIC_*` variable carries a secret). Generation routes declare
 `maxDuration = 60`, and each `advance` slice is budgeted at 25 seconds, comfortably inside it.
