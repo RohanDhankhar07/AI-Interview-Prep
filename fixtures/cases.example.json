@@ -1,0 +1,20 @@
+[
+  {
+    "id": "case-01",
+    "jd": "Senior Backend Engineer\n\nAcme Robotics is hiring a Senior Backend Engineer to work on Fleet OS, the service that routes hundreds of autonomous robots through customer warehouses.\n\nWhat you'll do:\n- Own services that ingest and act on high-volume robot telemetry\n- Design APIs used by our on-robot navigation stack and by customer WMS integrations\n- Take part in on-call and lead blameless incident reviews\n- Mentor two or three mid-level engineers on the platform team\n\nRequirements:\n- 5+ years building production backend services in Go or TypeScript\n- Strong experience with PostgreSQL, including query tuning and schema migration\n- You have designed and operated event-driven systems (we use Kafka)\n- Experience running services on Kubernetes\n- Excellent written communication; we are a documentation-first team\n\nNice to have:\n- Exposure to robotics, IoT or other real-time telemetry domains\n- Experience with Terraform\n- Bonus points for prior work in logistics or warehousing",
+    "company_url": "http://localhost:8099/acme/",
+    "days": 5
+  },
+  {
+    "id": "case-02",
+    "jd": "Full Stack Developer. React and Node. Apply within.",
+    "company_url": "http://localhost:8099/quietco/",
+    "days": 3
+  },
+  {
+    "id": "case-03",
+    "jd": "Product Engineer, Payments\n\nWe are looking for a product engineer to build and maintain our payments experience.\n\nYou will:\n- Ship customer-facing features across our React front end and Node back end\n- Work directly with support to turn recurring complaints into product changes\n\nRequirements:\n- 3+ years of professional experience with React and TypeScript\n- Familiarity with payment providers such as Stripe\n- Comfortable owning a feature from problem statement to production\n\nDesirable:\n- Experience with PCI compliance",
+    "company_url": "https://this-domain-does-not-resolve-xyzq.example",
+    "days": 1
+  }
+]
