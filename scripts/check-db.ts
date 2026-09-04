@@ -112,6 +112,9 @@ async function main(): Promise<void> {
     const probe = db.collection('_connectivity_probe');
     const { insertedId } = await probe.insertOne({ at: new Date().toISOString() });
     await probe.deleteOne({ _id: insertedId });
+    // Deleting the document leaves the collection behind, so drop it too: a
+    // diagnostic should not leave anything in the user's database.
+    await probe.drop().catch(() => {});
     console.log('✓ Write and delete succeeded');
 
     await db.collection('users').createIndex({ email: 1 }, { unique: true });
