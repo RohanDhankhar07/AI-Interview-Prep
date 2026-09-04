@@ -23,6 +23,10 @@ export function ScheduleSection({
 }) {
   const questionsById = new Map(kit.questions.map((q) => [q.id, q]));
   const totalMinutes = kit.schedule.days.reduce((sum, day) => sum + day.minutes, 0);
+  // Derived client-side: a hand-arranged schedule is never re-allocated for the
+  // user, so it can fall behind the question bank. Say so rather than let it rot.
+  const scheduled = new Set(kit.schedule.days.flatMap((day) => day.question_ids));
+  const unscheduled = kit.questions.filter((q) => !scheduled.has(q.id));
 
   return (
     <section id="schedule" aria-labelledby="schedule-heading" className="scroll-mt-20 space-y-3">
@@ -40,6 +44,18 @@ export function ScheduleSection({
           {regenerating === 'schedule' ? 'Re-allocating…' : 'Re-allocate'}
         </Button>
       </div>
+
+      {unscheduled.length > 0 ? (
+        <Card className="border-warn/40 p-4 text-sm">
+          <p className="font-medium text-warn">
+            {unscheduled.length} question{unscheduled.length === 1 ? ' is' : 's are'} not in the schedule
+          </p>
+          <p className="mt-1 text-muted">
+            Your hand-arranged days were kept as they are. Re-allocate to fold the new questions in —
+            that replaces the arrangement with a fresh one.
+          </p>
+        </Card>
+      ) : null}
 
       <ol className="space-y-3">
         {kit.schedule.days.map((day) => (

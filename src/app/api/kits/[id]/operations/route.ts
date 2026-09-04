@@ -40,6 +40,8 @@ export const PATCH = withErrorHandling(async (request: Request, context: Context
     throw new BadRequestError(`That edit would break the kit: ${validation.errors.join('; ')}`);
   }
 
-  const updated = await kits.update(id, user.id, { kit: validation.kit! });
+  const scheduleEdited =
+    record.scheduleEdited || operations.some((op) => op.type === 'schedule.day.update');
+  const updated = await kits.update(id, user.id, { kit: validation.kit!, scheduleEdited });
   return ok({ data: updated!.kit });
 });

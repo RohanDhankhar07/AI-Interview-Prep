@@ -66,6 +66,7 @@ export async function createKit(userId: string, input: CreateKitInput): Promise<
       artifacts: state.artifacts,
       kit: state.kit,
       leaseUntil: null,
+      scheduleEdited: false,
       practice: {},
       createdAt: now,
       updatedAt: now,
@@ -171,6 +172,7 @@ export async function regenerateSection(
     if (leased.status === 'running') throw new ConflictError('Wait for generation to finish first.');
     const kit: Kit = structuredClone(leased.kit);
     let summary = '';
+    let scheduleEdited = leased.scheduleEdited ?? false;
 
     if (section === 'company_brief') {
       summary = await regenerateBrief(kit, leased);
@@ -178,6 +180,8 @@ export async function regenerateSection(
       summary = await regenerateFlashcards(kit);
     } else if (section === 'schedule') {
       summary = regenerateSchedule(kit, leased);
+      // Asking for a re-allocation replaces whatever was arranged by hand.
+      scheduleEdited = false;
     } else {
       summary = await regenerateQuestionCategory(kit, section.split(':')[1] as QuestionCategory, leased);
     }
@@ -188,7 +192,11 @@ export async function regenerateSection(
       throw new ConflictError(`Regenerated section did not validate: ${validation.errors.join('; ')}`);
     }
 
-    const record = await kits.update(kitId, userId, { kit: validation.kit!, leaseUntil: null });
+    const record = await kits.update(kitId, userId, {
+      kit: validation.kit!,
+      leaseUntil: null,
+      scheduleEdited,
+    });
     return { record: record ?? leased, summary };
   } finally {
     await kits.releaseLease(kitId, userId);
@@ -281,12 +289,28 @@ async function regenerateQuestionCategory(
     closed = extra.length;
   }
 
-  void record;
+  // The schedule is derived from the questions, so it has to follow them — unless
+  // the user has arranged their days by hand, in which case we leave their work
+  // alone and say the schedule is now out of date.
+  let scheduleNote = '';
+  if (record.scheduleEdited) {
+    scheduleNote = 'Your hand-arranged schedule was left untouched, so it does not include the new questions yet';
+  } else {
+    kit.schedule = allocateSchedule({
+      questions: kit.questions,
+      requirements: kit.role.requirements,
+      days_available: kit.schedule.days_available,
+      confidenceByQuestionId: practiceConfidenceByQuestion(kit, record),
+    });
+    scheduleNote = 'and the schedule was re-allocated to include them';
+  }
+
   return [
     `Kept ${merged.kept} question(s) you had edited or pinned`,
     `replaced ${merged.replaced}`,
     `added ${merged.added}`,
-    closed ? `and wrote ${closed} more to close a coverage gap` : '',
+    closed ? `wrote ${closed} more to close a coverage gap` : '',
+    scheduleNote,
   ]
     .filter(Boolean)
     .join(', ')

@@ -33,6 +33,12 @@ export interface KitRecord {
   kit: Kit;
   /** Held by whichever request is currently advancing the pipeline. */
   leaseUntil: string | null;
+  /**
+   * Set once the user edits a schedule day by hand. After that we never
+   * re-allocate on their behalf, because that would discard their edit — we tell
+   * them the schedule is out of date instead.
+   */
+  scheduleEdited?: boolean;
   practice: Record<string, PracticeRecord>;
   createdAt: string;
   updatedAt: string;
