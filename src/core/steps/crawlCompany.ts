@@ -92,13 +92,27 @@ export function registrableHost(host: string): string {
   return parts.length <= 2 ? parts.join('.') : parts.slice(-2).join('.');
 }
 
+export function isLocalHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname.endsWith('.localhost') || /^[\d.]+$/.test(hostname);
+}
+
 export function isSameSite(candidate: URL, seed: URL): boolean {
-  if (candidate.host === seed.host) return true;
-  // Local test servers are addressed by port, so treat one origin as one site.
-  if (seed.hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(seed.hostname)) {
-    return candidate.hostname === seed.hostname;
+  // A local host often serves several fixture companies from one port, separated
+  // only by a path prefix (/acme/, /quietco/). Staying inside the seed's own
+  // prefix keeps a crawl from wandering into a different company's site.
+  if (isLocalHost(seed.hostname)) {
+    if (candidate.host !== seed.host) return false;
+    const prefix = seedPrefix(seed);
+    return prefix === '/' || candidate.pathname === prefix.slice(0, -1) || candidate.pathname.startsWith(prefix);
   }
+  if (candidate.host === seed.host) return true;
   return registrableHost(candidate.host) === registrableHost(seed.host);
+}
+
+/** The seed's directory: /acme/ for /acme/ and for /acme/careers, / for the root. */
+function seedPrefix(seed: URL): string {
+  const segments = seed.pathname.split('/').filter(Boolean);
+  return segments.length === 0 ? '/' : `/${segments[0]}/`;
 }
 
 /**

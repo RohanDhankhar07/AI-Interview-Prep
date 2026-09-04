@@ -128,3 +128,26 @@ describe('robots.txt', () => {
     expect(isAllowedBy(robots, '/files/report.html')).toBe(true);
   });
 });
+
+describe('a local host serving several companies', () => {
+  // Batch fixtures often live at localhost:8099/acme/ and localhost:8099/quietco/.
+  const acme = new URL('http://localhost:8099/acme/');
+
+  it('stays inside the company it was pointed at', () => {
+    expect(isSameSite(new URL('http://localhost:8099/acme/careers'), acme)).toBe(true);
+    expect(isSameSite(new URL('http://localhost:8099/acme/handbook/how-we-hire'), acme)).toBe(true);
+    expect(isSameSite(new URL('http://localhost:8099/quietco/'), acme)).toBe(false);
+    expect(scoreLink('http://localhost:8099/quietco/careers', 'Careers', acme, 1)).toBe(-Infinity);
+  });
+
+  it('does not restrict a crawl seeded at a local root', () => {
+    const root = new URL('http://localhost:8099/');
+    expect(isSameSite(new URL('http://localhost:8099/acme/careers'), root)).toBe(true);
+  });
+
+  it('still treats a real site by its registrable domain', () => {
+    const site = new URL('https://acme.example/careers');
+    expect(isSameSite(new URL('https://careers.acme.example/engineer'), site)).toBe(true);
+    expect(isSameSite(new URL('https://acme.example/about'), site)).toBe(true);
+  });
+});
