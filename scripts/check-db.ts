@@ -86,12 +86,15 @@ async function main(): Promise<void> {
     if (/internal error|alert number 80|handshake failure/i.test(handshake.error ?? '')) {
       fail(
         `TLS was refused by ${target.name} before any credentials were sent.`,
-        `On a shared cluster this means your IP is not on the Atlas access list.\n` +
-          `  Atlas › Network Access › Add IP Address:\n` +
-          `    · this machine: ${await publicIp()}\n` +
-          `    · Vercel:       0.0.0.0/0  (its egress IPs are not fixed on the free tier)\n` +
-          `  Changes take a minute to apply. The password is not the problem — a bare TLS\n` +
-          `  handshake with no credentials is being rejected.`,
+        `Your username and password are not involved yet, so neither is the cause. On a\n` +
+          `  shared cluster this points at one of two things, in order of likelihood:\n\n` +
+          `  1. Your IP is not on the access list.\n` +
+          `     Atlas › Network Access › Add IP Address:\n` +
+          `       · this machine: ${await publicIp()}\n` +
+          `       · Vercel:       0.0.0.0/0  (egress IPs are not fixed on the free tier)\n` +
+          `     Allow a minute for the change to apply, then run this again.\n\n` +
+          `  2. The cluster is paused. Free M0 clusters auto-pause after 60 days idle.\n` +
+          `     Atlas › Clusters — if it says Paused, click Resume and wait for it to start.`,
       );
     }
     fail(`TLS handshake failed with ${target.name}: ${handshake.error}`);
