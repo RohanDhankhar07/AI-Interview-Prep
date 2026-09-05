@@ -64,6 +64,7 @@ export async function createKit(userId: string, input: CreateKitInput): Promise<
       error: state.error,
       events: state.events,
       artifacts: state.artifacts,
+      context: state.context,
       kit: state.kit,
       leaseUntil: null,
       scheduleEdited: false,
@@ -97,6 +98,8 @@ export function toState(record: KitRecord): PipelineState {
     passes: record.passes,
     error: record.error,
     artifacts: record.artifacts,
+    // Kits created before this field existed simply have no stored findings.
+    context: record.context ?? { hiringStages: [], publicThemes: [] },
     kit: record.kit,
   };
 }
@@ -129,6 +132,7 @@ export async function advanceKit(
       error: state.error,
       events: state.events,
       artifacts: state.artifacts,
+      context: state.context,
       kit: state.kit,
       leaseUntil: null,
     });
@@ -260,7 +264,7 @@ async function regenerateQuestionCategory(
   const fresh = await generateQuestionsForCategory({
     category,
     requirements: routed,
-    context: contextFromKit(kit),
+    context: contextFromKit(kit, record),
     count: questionCountFor(category, routed.length, kit.role.requirements.length),
     existingIds: kit.questions.map((q) => q.id),
   });
@@ -282,7 +286,7 @@ async function regenerateQuestionCategory(
     const extra = await generateQuestionsForGaps({
       category,
       requirements: gaps,
-      context: contextFromKit(kit),
+      context: contextFromKit(kit, record),
       existingIds: kit.questions.map((q) => q.id),
     });
     kit.questions.push(...extra);
@@ -317,16 +321,21 @@ async function regenerateQuestionCategory(
     .concat('.');
 }
 
-export function contextFromKit(kit: Kit) {
+/**
+ * Rebuilds the prompt context for a regeneration. The stored research findings
+ * are used, so a regenerated category is shaped by the company's published
+ * interview stages exactly as the first pass was.
+ */
+export function contextFromKit(kit: Kit, record?: KitRecord) {
   return {
     roleTitle: kit.role.title,
     seniority: kit.role.seniority,
     companyName: kit.source.company,
     companySummary: kit.company_brief.summary,
     hiringProcessSummary: kit.research?.hiring_process_summary ?? '',
-    hiringStages: [],
+    hiringStages: record?.context?.hiringStages ?? [],
     publicDiscussionSummary: kit.research?.public_discussion_summary ?? '',
-    publicThemes: [],
+    publicThemes: record?.context?.publicThemes ?? [],
   };
 }
 

@@ -90,10 +90,15 @@ function contextBlock(context: QuestionContext): string {
     lines.push(`The company documents this hiring process: ${context.hiringProcessSummary}`);
   }
   if (context.hiringStages.length) {
+    lines.push('This company publishes the rounds a candidate will actually face:');
+    for (const stage of context.hiringStages) {
+      lines.push(`  - ${stage.name}: ${stage.description}`);
+    }
     lines.push(
-      `Published interview stages: ${context.hiringStages.map((s) => `${s.name} — ${s.description}`).join(' | ')}`,
+      'Write for these rounds specifically. Where a question belongs to a named round, say so in',
+      'the answer outline (for example "asked in the take-home debrief"). If a round rules something',
+      'out — no live coding, no algorithm puzzles — respect that rather than writing it anyway.',
     );
-    lines.push('Shape the questions for these specific rounds.');
   }
   if (context.publicDiscussionSummary) {
     lines.push(`Candidates publicly report: ${context.publicDiscussionSummary}`);

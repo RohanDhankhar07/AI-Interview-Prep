@@ -62,6 +62,25 @@ interface TrimmedPage {
   text: string;
 }
 
+export interface HiringStage {
+  name: string;
+  description: string;
+}
+
+/**
+ * Findings that later steps need but that are not part of the kit itself.
+ *
+ * This has to be a declared field. It was previously stashed as an ad-hoc
+ * property on the state object, which worked in a single pass and silently
+ * vanished the moment the pipeline was persisted and resumed — so a company
+ * whose interview stages we had successfully found generated questions as
+ * though we had found nothing.
+ */
+export interface ResearchContext {
+  hiringStages: HiringStage[];
+  publicThemes: string[];
+}
+
 export interface PipelineState {
   input: PipelineInput;
   status: 'running' | 'done' | 'failed';
@@ -72,6 +91,8 @@ export interface PipelineState {
   error: { code: string; message: string } | null;
   /** Page text is held only while the research steps need it, then dropped. */
   artifacts: { pages: TrimmedPage[] };
+  /** Survives across slices; see ResearchContext. */
+  context: ResearchContext;
   kit: Kit;
 }
 
@@ -128,6 +149,7 @@ export function createInitialState(input: PipelineInput): PipelineState {
     passes: 0,
     error: null,
     artifacts: { pages: [] },
+    context: { hiringStages: [], publicThemes: [] },
     kit: emptyKit(input, days),
   };
 }
@@ -160,6 +182,7 @@ function emptyKit(input: PipelineInput, days: number): Kit {
       hiring_process_found: false,
       hiring_process_urls: [],
       hiring_process_summary: '',
+      hiring_process_stages: [],
       public_discussion_found: false,
       public_discussion_urls: [],
       public_discussion_summary: '',
@@ -325,10 +348,11 @@ async function runStep(step: StepName, state: PipelineState, log: Logger): Promi
       kit.research!.hiring_process_found = hiring.found;
       kit.research!.hiring_process_urls = hiring.urls;
       kit.research!.hiring_process_summary = hiring.summary;
+      kit.research!.hiring_process_stages = hiring.stages;
       state.artifacts.pages = []; // page text has served its purpose
       if (hiring.found) {
         log('info', `Hiring process found: ${hiring.urls.join(', ')}`);
-        (state as PipelineState & { hiringStages?: unknown }).hiringStages = hiring.stages;
+        state.context.hiringStages = hiring.stages;
         kit.research!.notes.push(
           `Hiring process found at ${hiring.urls[0]} — questions are shaped for the stages it describes.`,
         );
@@ -353,7 +377,7 @@ async function runStep(step: StepName, state: PipelineState, log: Logger): Promi
       kit.research!.public_discussion_summary = discussion.summary;
       kit.research!.skipped_sources.push(...discussion.skipped);
       kit.research!.notes.push(...discussion.notes);
-      (state as PipelineState & { publicThemes?: string[] }).publicThemes = discussion.themes;
+      state.context.publicThemes = discussion.themes;
       kit.source.pages_used = [...new Set([...kit.source.pages_used, ...discussion.urls])];
       log(discussion.found ? 'info' : 'warn', discussion.found ? `Public discussion found (${discussion.urls.length} sources)` : 'No public interview discussion found');
       return 'questions.technical';
@@ -573,18 +597,16 @@ function contextFor(state: PipelineState): QuestionContext {
     companyName: kit.source.company,
     companySummary: kit.company_brief.summary,
     hiringProcessSummary: kit.research?.hiring_process_summary ?? '',
-    hiringStages: ((state as PipelineState & { hiringStages?: { name: string; description: string }[] })
-      .hiringStages ?? []),
+    hiringStages: state.context?.hiringStages ?? [],
     publicDiscussionSummary: kit.research?.public_discussion_summary ?? '',
-    publicThemes: (state as PipelineState & { publicThemes?: string[] }).publicThemes ?? [],
+    publicThemes: state.context?.publicThemes ?? [],
   };
 }
 
 /** Does anything we retrieved say this company runs a design or architecture round? */
 export function publishesDesignRound(state: PipelineState): boolean {
-  const stages = (state as PipelineState & { hiringStages?: { name: string; description: string }[] })
-    .hiringStages ?? [];
-  const themes = (state as PipelineState & { publicThemes?: string[] }).publicThemes ?? [];
+  const stages = state.context?.hiringStages ?? [];
+  const themes = state.context?.publicThemes ?? [];
   const haystack = [
     state.kit.research?.hiring_process_summary ?? '',
     state.kit.research?.public_discussion_summary ?? '',

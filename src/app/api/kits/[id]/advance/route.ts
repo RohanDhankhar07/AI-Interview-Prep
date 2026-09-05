@@ -5,10 +5,19 @@ import { progressPercent, STEP_LABELS } from '@/core/pipeline';
 
 /**
  * Drives one slice of generation. The client calls this repeatedly while the kit
- * is running, which gives real progress and keeps every invocation well inside
- * the platform's function timeout.
+ * is running, which is what gives the UI real progress.
+ *
+ * Two different limits are at work, and they are not the same thing:
+ *
+ *  - ADVANCE_BUDGET_MS (25s) is a UX choice. It decides when this call stops
+ *    *starting* new steps and hands back a progress update, so a two-minute
+ *    generation reports in several times instead of going quiet.
+ *  - maxDuration is a safety ceiling. A step already in flight when the budget
+ *    runs out is allowed to finish, and one model call with rate-limit backoff
+ *    can take well over a minute on a free tier. At the old 60s this killed the
+ *    step mid-flight and threw away its work.
  */
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type Context = { params: Promise<{ id: string }> };
 

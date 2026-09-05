@@ -107,6 +107,10 @@ export const ResearchSchema = z.object({
   hiring_process_found: z.boolean().default(false),
   hiring_process_urls: z.array(z.string()).default([]),
   hiring_process_summary: z.string().default(''),
+  /** The rounds the company publishes, in order. Empty when none were found. */
+  hiring_process_stages: z
+    .array(z.object({ name: z.string(), description: z.string().default('') }))
+    .default([]),
   public_discussion_found: z.boolean().default(false),
   public_discussion_urls: z.array(z.string()).default([]),
   public_discussion_summary: z.string().default(''),

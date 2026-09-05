@@ -28,6 +28,20 @@ export function ResearchSection({ kit }: { kit: Kit }) {
           {research.hiring_process_found ? (
             <>
               <p className="text-sm">{research.hiring_process_summary}</p>
+
+              {research.hiring_process_stages?.length ? (
+                <ol className="space-y-1.5 border-l-2 border-brand/30 pl-3">
+                  {research.hiring_process_stages.map((stage, index) => (
+                    <li key={`${stage.name}-${index}`} className="text-sm">
+                      <span className="font-medium">{stage.name}</span>
+                      {stage.description ? (
+                        <span className="text-muted"> — {stage.description}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+
               <ul className="space-y-1 text-xs">
                 {research.hiring_process_urls.map((url) => (
                   <li key={url}>

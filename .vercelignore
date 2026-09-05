@@ -1,0 +1,6 @@
+# Kept out of the deployment: local tooling, not application code.
+tests/
+fixtures/
+scripts/
+.env.local
+kits.json

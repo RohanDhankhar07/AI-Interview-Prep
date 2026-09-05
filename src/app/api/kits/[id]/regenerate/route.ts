@@ -4,7 +4,13 @@ import { regenerateSection, type RegenerableSection } from '@/server/kitService'
 import { ok, readJson, withErrorHandling } from '@/server/http';
 import { QUESTION_CATEGORIES } from '@/core/types';
 
-export const maxDuration = 60;
+/**
+ * Regenerating the brief re-crawls the company site before it calls the model,
+ * and a question category can need a gap-closing pass on top. Both sit well
+ * inside this, but a rate-limited free tier is unpredictable enough to want the
+ * headroom rather than lose the work.
+ */
+export const maxDuration = 300;
 
 const Body = z.object({
   section: z.union([

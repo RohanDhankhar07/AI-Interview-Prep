@@ -30,6 +30,8 @@ export interface KitRecord {
   error: PipelineState['error'];
   events: PipelineEvent[];
   artifacts: PipelineState['artifacts'];
+  /** Research findings later steps need; see ResearchContext in core/pipeline. */
+  context?: PipelineState['context'];
   kit: Kit;
   /** Held by whichever request is currently advancing the pipeline. */
   leaseUntil: string | null;

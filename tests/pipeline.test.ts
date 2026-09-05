@@ -5,6 +5,8 @@ import { validateKit, uncoveredMustHaves } from '../src/core/validate';
 import { checkCoverage } from '../src/core/coverage';
 import { robotsCacheClear } from '../src/core/net/robots';
 import { installMockLlm, uninstallMockLlm } from './mock-llm';
+import { toState } from '../src/server/kitService';
+import { kit as kitFixture } from './helpers';
 
 /**
  * End-to-end: a local company site plus a deterministic model, exercising
@@ -269,5 +271,66 @@ describe('resuming generation across slices', () => {
       previous = percent;
     }
     expect(progressPercent(state)).toBe(100);
+  });
+});
+
+describe('research findings survive being stored and resumed', () => {
+  // Caught against a real site: the interview stages we had successfully found
+  // were stashed as an ad-hoc property, and the repository rebuilds state from
+  // declared fields only — so every slice boundary silently threw them away and
+  // the questions were written as though no process had been found.
+  it('carries the discovered interview stages through a storage round trip', async () => {
+    installMockLlm();
+    let state = createInitialState({ jd: SENIOR_JD, companyUrl: `${base}/acme/`, days: 3 });
+
+    while (state.status === 'running') {
+      state = await advance(state, { timeBudgetMs: 0 });
+      // Exactly what the repository does: persist named fields, rebuild from them.
+      state = toState({
+        id: 'x',
+        userId: 'u',
+        title: 't',
+        fingerprint: 'f',
+        input: state.input,
+        status: state.status,
+        step: state.step,
+        completed: state.completed,
+        passes: state.passes,
+        error: state.error,
+        events: state.events,
+        artifacts: state.artifacts,
+        context: state.context,
+        kit: state.kit,
+        leaseUntil: null,
+        practice: {},
+        createdAt: '',
+        updatedAt: '',
+      });
+
+      if (state.completed.includes('research.hiring') && state.kit.research!.hiring_process_found) {
+        expect(state.context.hiringStages.length).toBeGreaterThan(0);
+      }
+    }
+
+    expect(state.status).toBe('done');
+    expect(state.context.hiringStages.length).toBeGreaterThan(0);
+  });
+
+  it('defaults the findings for a kit stored before the field existed', () => {
+    const restored = toState({
+      artifacts: { pages: [] },
+      context: undefined,
+      status: 'running',
+      step: 'extract',
+      completed: [],
+      passes: 0,
+      error: null,
+      events: [],
+      input: { jd: '', companyUrl: '', days: 1 },
+      kit: kitFixture(),
+      id: 'x', userId: 'u', title: 't', fingerprint: 'f',
+      leaseUntil: null, practice: {}, createdAt: '', updatedAt: '',
+    });
+    expect(restored.context).toEqual({ hiringStages: [], publicThemes: [] });
   });
 });

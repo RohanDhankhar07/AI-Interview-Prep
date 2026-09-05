@@ -121,3 +121,36 @@ describe('Appendix A contract', () => {
     }
   });
 });
+
+describe('published interview stages', () => {
+  it('are carried in the kit so the candidate can see what they face', () => {
+    const target = kit();
+    target.research = {
+      crawled_pages: 7,
+      hiring_process_found: true,
+      hiring_process_urls: ['https://example.com/handbook/hiring'],
+      hiring_process_summary: 'Four rounds.',
+      hiring_process_stages: [
+        { name: 'Take-home', description: 'Paid, three hours.' },
+        { name: 'System design', description: '75 minutes.' },
+      ],
+      public_discussion_found: false,
+      public_discussion_urls: [],
+      public_discussion_summary: '',
+      skipped_sources: [],
+      notes: [],
+    };
+    const result = validateKit(target);
+    expect(result.ok).toBe(true);
+    expect(result.kit!.research!.hiring_process_stages).toHaveLength(2);
+  });
+
+  it('default to empty for a company that publishes nothing', () => {
+    const result = validateKit({
+      ...kit(),
+      research: { crawled_pages: 1, hiring_process_found: false },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.kit!.research!.hiring_process_stages).toEqual([]);
+  });
+});

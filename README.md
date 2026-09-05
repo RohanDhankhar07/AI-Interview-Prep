@@ -509,33 +509,74 @@ Focused on what is worth protecting and hard to eyeball:
 
 ## Deployment
 
-Deployed on Vercel with MongoDB Atlas. Frontend and backend are the same deployment; the API is
-reachable under `/api/*`.
+Deployed on Vercel with MongoDB Atlas. Frontend and backend are the same deployment; the API
+is reachable under `/api/*`.
 
-1. Create a free MongoDB Atlas M0 cluster and allow access from anywhere (Vercel's egress IPs are
-   not fixed on the free tier).
-2. Import the repository into Vercel. The defaults are correct — no build configuration needed.
-3. Set the environment variables (Production and Preview):
+### 1. MongoDB Atlas
 
-   | Variable | Purpose |
-   | --- | --- |
-   | `AUTH_SECRET` | Signs session JWTs. 32+ random characters. |
-   | `MONGODB_URI` | Atlas connection string. Required in production. |
-   | `MONGODB_DB` | Database name. Defaults to `interview_prep_kit`. |
-   | `LLM_PROVIDER` + its key | `groq` + `GROQ_API_KEY`, or `gemini`, `openrouter`, `cerebras`. |
-   | `CRAWLER_USER_AGENT` | Identifies the crawler to the sites it visits. Set a contact URL. |
-   | `SERPER_API_KEY` *(optional)* | Better search than the keyless fallback. |
-   | `ALLOW_PRIVATE_NETWORK` | Leave unset. Defaults to **false** in production. |
+Create a free M0 cluster, then **Network Access → Add IP Address → `0.0.0.0/0`**. Vercel's
+egress IPs are not fixed on the free tier, so an allow-list of specific addresses will not
+work. Verify the connection string before deploying:
 
-After deploying, `GET /api/health` reports which pieces are configured — database, auth
-secret, model provider, search — without revealing any value. It is the quickest way to
-confirm the environment variables landed.
+```bash
+npm run db:check
+```
 
-Secrets live only in Vercel's environment variables and are read server-side; nothing sensitive is
-exposed to the browser (no `NEXT_PUBLIC_*` variable carries a secret). Generation routes declare
-`maxDuration = 60`, and each `advance` slice is budgeted at 25 seconds, comfortably inside it.
+### 2. Import into Vercel
 
----
+The defaults are correct — Next.js is detected, no build configuration needed.
+`vercel.ts` in the repository root carries the project configuration:
+
+- **`regions: ['bom1']`** — functions run in Mumbai. This is deliberate: the Atlas cluster
+  is in `ap-south-1`, and one request makes several round trips to it (read the kit, take the
+  generation lease, write the result). Left on the default `iad1`, every one of those crosses
+  an ocean. **If you move the cluster, change this** — functions belong beside the database,
+  because database round trips outnumber everything else.
+- **Security headers** — `nosniff`, `DENY` framing, a strict referrer policy, HSTS, and
+  `Cache-Control: no-store` on `/api/*` so no proxy or CDN ever stores a response that belongs
+  to one signed-in user.
+
+`vercel.ts` is the current configuration format and replaces `vercel.json`. If your project
+does not pick it up, the same two settings are available in the dashboard under Settings →
+Functions (region) — the deployment works either way, just with a slower database path.
+
+### 3. Environment variables
+
+Set these for Production and Preview:
+
+| Variable | Purpose |
+| --- | --- |
+| `AUTH_SECRET` | Signs session JWTs. 32+ random characters. |
+| `MONGODB_URI` | Atlas connection string. **Required** — the app refuses to start without it in production rather than silently using an in-memory store. |
+| `MONGODB_DB` | Database name. Defaults to `interview_prep_kit`. |
+| `LLM_PROVIDER` | `groq` (default), `gemini`, `openrouter`, `cerebras`. |
+| `GROQ_API_KEY` | …or the matching key for your provider. |
+| `LLM_MODEL` | Optional. Set when the provider retires the default model. |
+| `CRAWLER_USER_AGENT` | Identifies the crawler to the sites it visits. Put a contact URL in it. |
+| `SERPER_API_KEY` | Optional. Better public-discussion search than the keyless fallback. |
+| `ALLOW_PRIVATE_NETWORK` | **Leave unset.** Defaults to false in production, which is what refuses to fetch private and loopback addresses. |
+
+Secrets are read server-side only; no `NEXT_PUBLIC_*` variable carries one.
+
+### 4. Verify
+
+`GET /api/health` reports which pieces are configured — database, auth secret, model
+provider, search — without revealing any value. It is the quickest way to confirm the
+variables landed.
+
+### Function durations
+
+Generation runs in time-boxed slices, and two different limits are involved:
+
+- `ADVANCE_BUDGET_MS` (25s) decides when a slice stops *starting* new steps and returns a
+  progress update. It is a UX choice — it keeps a two-minute generation reporting in several
+  times instead of going quiet.
+- `maxDuration` (300s, the platform default on every plan under Fluid Compute) is a safety
+  ceiling. A step already in flight when the budget runs out is allowed to finish, and a
+  single model call with rate-limit backoff can take well over a minute on a free tier.
+
+These are deliberately far apart. Setting `maxDuration` near the budget kills steps mid-flight
+and throws away their work.
 
 ## Design decisions and trade-offs
 
