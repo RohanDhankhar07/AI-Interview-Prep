@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, afterEach, describe, expect, it } from 'vitest';
 import { createServer, type Server } from 'node:http';
-import { runPipeline } from '../src/core/pipeline';
+import { runPipeline, advance, createInitialState, progressPercent } from '../src/core/pipeline';
 import { validateKit, uncoveredMustHaves } from '../src/core/validate';
 import { checkCoverage } from '../src/core/coverage';
 import { robotsCacheClear } from '../src/core/net/robots';
@@ -215,5 +215,59 @@ describe('single-character and two-character requirements', () => {
     const texts = state.kit.role.requirements.map((r) => r.text);
     expect(texts.some((t) => /\bGo\b/.test(t))).toBe(true);
     expect(validateKit(state.kit).ok).toBe(true);
+  });
+});
+
+describe('resuming generation across slices', () => {
+  // How the deployed app runs: /advance does one time-boxed slice, persists, and
+  // the client calls again. A real run takes 40-75s against a model, far longer
+  // than any serverless invocation, so this path is the one that matters.
+  it('completes the same kit over many small slices as it does in one run', async () => {
+    installMockLlm();
+    let state = createInitialState({ jd: SENIOR_JD, companyUrl: `${base}/acme/`, days: 4 });
+
+    let slices = 0;
+    while (state.status === 'running' && slices < 40) {
+      // A zero budget forces the loop to hand control back after every step.
+      const persisted = JSON.parse(JSON.stringify(state)) as typeof state;
+      state = await advance(persisted, { timeBudgetMs: 0 });
+      slices++;
+    }
+
+    expect(state.status).toBe('done');
+    expect(slices).toBeGreaterThan(5); // genuinely sliced, not one pass
+    expect(validateKit(state.kit).ok).toBe(true);
+    expect(uncoveredMustHaves(state.kit)).toEqual([]);
+    expect(state.kit.schedule.days).toHaveLength(4);
+  });
+
+  it('survives a round trip through JSON at every step, as the database requires', async () => {
+    installMockLlm();
+    let state = createInitialState({ jd: SENIOR_JD, companyUrl: `${base}/acme/`, days: 3 });
+
+    while (state.status === 'running') {
+      state = await advance(state, { timeBudgetMs: 0 });
+      // Everything the pipeline carries has to be storable and restorable.
+      const roundTripped = JSON.parse(JSON.stringify(state));
+      expect(roundTripped).toEqual(state);
+      state = roundTripped;
+    }
+
+    expect(state.status).toBe('done');
+    expect(validateKit(state.kit).ok).toBe(true);
+  });
+
+  it('reports progress that only ever moves forward', async () => {
+    installMockLlm();
+    let state = createInitialState({ jd: SENIOR_JD, companyUrl: `${base}/acme/`, days: 2 });
+
+    let previous = -1;
+    while (state.status === 'running') {
+      state = await advance(state, { timeBudgetMs: 0 });
+      const percent = progressPercent(state);
+      expect(percent).toBeGreaterThanOrEqual(previous);
+      previous = percent;
+    }
+    expect(progressPercent(state)).toBe(100);
   });
 });

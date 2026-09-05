@@ -113,6 +113,22 @@ LLM_PROVIDER=mock SEARCH_DISABLED=true npm run dev
 process at `/acme/handbook/how-we-hire` — reachable only through a *relative* footer link, so a
 hard-coded path list misses it — and `/quietco/`, a real-looking site with no hiring page anywhere.
 
+### Troubleshooting
+
+**API routes returning 404 locally.** `next build` and `next dev` share `.next`, and a
+production build left on top of a dev server makes nested route segments
+(`/api/kits/[id]/advance`) stop resolving while `/api/kits/[id]` still answers. Delete the
+directory and restart:
+
+```bash
+rm -rf .next && npm run dev
+```
+
+**`model_not_found` from the provider.** Providers retire models; see the model-listing
+command above and set `LLM_MODEL`.
+
+**Atlas connection problems.** `npm run db:check` names the failing stage.
+
 ---
 
 ## The batch entry point
